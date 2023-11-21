@@ -2,6 +2,8 @@ from fastapi import status
 from fastapi import FastAPI, HTTPException
 from models import Camisa, Caneca, Quadrinho
 from typing import Union
+from operator import attrgetter
+import random
 
 app = FastAPI()
 
@@ -14,6 +16,7 @@ produtos_promocionais = []
 @app.get('/carrinho')
 async def ver_carrinho():
     return carrinho, produtos_promocionais
+
 
 @app.get('/carrinho/{id}')
 async def ver_item_do_carrinho(id: int):
@@ -36,7 +39,7 @@ async def adicionar_produto_ao_carrinho(produto: Union[Camisa, Caneca, Quadrinho
         camisas_compradas += 1
         if camisas_compradas % 4 == 0:
             produtos_promocionais.append(
-                Caneca(nome="Caneca de brinde", preco=0, capacidade="300ml"))
+                Caneca(id=random.choice(range(0, 1001, 3)),nome="Caneca de brinde", preco=0, capacidade="300ml"))
             camisas_compradas = 0
     elif isinstance(produto, Quadrinho):
         quadrinhos_comprados += 1
@@ -62,15 +65,32 @@ async def remover_produto_do_carrinho(id: int):
 
 @app.post('/finalizar_compra')
 async def finalizar_compra():
-    total = sum(produto.preco for produto in carrinho)
+    def gerar_numero_serie(produto):
+        if isinstance(produto, Camisa):
+            return random.choice(range(0, 1001, 5))  # Múltiplos de 5 até 1000
+        elif isinstance(produto, Caneca):
+            return random.choice(range(0, 1001, 3))  # Múltiplos de 3 até 1000
+        elif isinstance(produto, Quadrinho):
+            return random.choice(range(0, 1001, 7))  # Múltiplos de 7 até 1000
+        else:
+            return None  # Lógica para outros tipos de produtos
+
+    carrinho_ordenado = sorted(carrinho, key=attrgetter('preco'))
+    produtos_promocionais_ordenados = sorted(produtos_promocionais, key=attrgetter('preco'))
+
+    total = sum(produto.preco for produto in carrinho_ordenado + produtos_promocionais_ordenados)
+
     resposta = {
         "msg": "Compra finalizada com sucesso!",
-        "carrinho": [produto.dict() for produto in carrinho],
-        "promocao": [produto.dict() for produto in produtos_promocionais],
+        "itens": [{
+            "produto": produto.dict(),
+            "numero_serie": gerar_numero_serie(produto)
+        } for produto in carrinho_ordenado + produtos_promocionais_ordenados],
         "total": total,
     }
 
     return resposta
+
 
 
 if __name__ == '__main__':
