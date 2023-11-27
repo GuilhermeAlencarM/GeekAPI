@@ -6,21 +6,21 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from models.produto_model import ProdutoModel,ProdutoResponse
+from models.produto_model import ProdutoModel, ProdutoResponse
 from core.deps import get_session
 from operator import attrgetter
 
 router = APIRouter()
 
 
-@router.get("/carrinho", response_model=List[ProdutoResponse], tags=["carrinho"])
+@router.get("/carrinho", response_model=List[ProdutoResponse], tags=["Sistema"])
 async def listar_produtos(session: AsyncSession = Depends(get_session)):
     produtos = await session.execute(select(ProdutoModel))
 
     return produtos.scalars().all()
 
 
-@router.get("/carrinho/{produto_id}", response_model=ProdutoResponse, tags=["carrinho"])
+@router.get("/carrinho/{produto_id}", response_model=ProdutoResponse, tags=["Sistema"])
 async def listar_produto(produto_id: int, session: AsyncSession = Depends(get_session)):
     produto = await session.get(ProdutoModel, produto_id)
     if not produto:
@@ -28,18 +28,19 @@ async def listar_produto(produto_id: int, session: AsyncSession = Depends(get_se
                             detail="Produto não encontrado.")
     return produto
 
-@router.post("/carrinho", response_model=ProdutoResponse, tags=["carrinho"], status_code=status.HTTP_201_CREATED)
+
+@router.post("/carrinho", response_model=ProdutoResponse, tags=["Sistema"], status_code=status.HTTP_201_CREATED)
 async def criar_produto(produto: ProdutoModel, session: AsyncSession = Depends(get_session)):
     produto_dict = produto.dict()
     produto_cleaned = ProdutoModel(**produto_dict)
-    
+
     session.add(produto_cleaned)
     await session.commit()
     await session.refresh(produto_cleaned)
     return produto_cleaned
 
 
-@router.delete("/carrinho/{produto_id}", tags=["carrinho"])
+@router.delete("/carrinho/{produto_id}", tags=["Sistema"])
 async def deletar_produto(produto_id: int, session: AsyncSession = Depends(get_session)):
     produto = await session.get(ProdutoModel, produto_id)
     await session.delete(produto)
@@ -63,23 +64,29 @@ def gerar_numero_serie(produto: ProdutoModel) -> Union[int, None]:
         return None  # Tipo de produto desconhecido
 
 
-@router.post("/finalizar-compra", tags=["carrinho"])
+@router.post("/finalizar-compra", tags=["Sistema"])
 async def finalizar_compra(session: AsyncSession = Depends(get_session)):
     produtos = await session.execute(select(ProdutoModel))
     carrinho_ordenado = sorted(
         produtos.scalars().all(), key=attrgetter('preco'))
 
     # Aplicar promoção: 4 camisas = 1 caneca grátis
-    qtd_camisas = sum(1 for produto in carrinho_ordenado if produto.tipo == "Camisa")
-    qtd_canecas = sum(1 for produto in carrinho_ordenado if produto.tipo == "Caneca")
+    qtd_camisas = sum(
+        1 for produto in carrinho_ordenado if produto.tipo == "Camisa")
+    qtd_canecas = sum(
+        1 for produto in carrinho_ordenado if produto.tipo == "Caneca")
     if qtd_camisas >= 4 and qtd_canecas < 1:
-        carrinho_ordenado.append(ProdutoModel(id=random.choice(range(0, 1001, 3)), nome="Caneca Brinde", tipo="Caneca", preco=0, capacidade="300ml"))
+        carrinho_ordenado.append(ProdutoModel(id=random.choice(range(
+            0, 1001, 3)), nome="Caneca Brinde", tipo="Caneca", preco=0, capacidade="300ml"))
 
     # Aplicar promoção: 5 quadrinhos = menor valor grátis
-    qtd_quadrinhos = sum(1 for produto in carrinho_ordenado if produto.tipo == "Quadrinho")
+    qtd_quadrinhos = sum(
+        1 for produto in carrinho_ordenado if produto.tipo == "Quadrinho")
     if qtd_quadrinhos >= 5:
-        precos_quadrinhos = [produto.preco for produto in carrinho_ordenado if produto.tipo == "Quadrinho"]
-        precos_quadrinhos.sort()  # Ordena os preços dos quadrinhos do mais barato para o mais caro
+        precos_quadrinhos = [
+            produto.preco for produto in carrinho_ordenado if produto.tipo == "Quadrinho"]
+        # Ordena os preços dos quadrinhos do mais barato para o mais caro
+        precos_quadrinhos.sort()
         for produto in carrinho_ordenado:
             if produto.tipo == "Quadrinho" and produto.preco == precos_quadrinhos[0]:
                 produto.preco = 0
@@ -97,4 +104,3 @@ async def finalizar_compra(session: AsyncSession = Depends(get_session)):
     }
 
     return resposta
-
