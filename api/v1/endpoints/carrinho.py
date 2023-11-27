@@ -42,15 +42,14 @@ async def criar_produto(produto: ProdutoModel, session: AsyncSession = Depends(g
 
 @router.delete("/carrinho/{produto_id}", tags=["Sistema"])
 async def deletar_produto(produto_id: int, session: AsyncSession = Depends(get_session)):
-    produto = await session.get(ProdutoModel, produto_id)
-    await session.delete(produto)
-    await session.commit()
-
-    if not produto:
+    try:
+        produto = await session.get(ProdutoModel, produto_id)
+        await session.delete(produto)
+        await session.commit()
+        return Response(status_code=status.HTTP_204_NO_CONTENT)
+    except:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
                             detail="Produto não encontrado.")
-
-    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 def gerar_numero_serie(produto: ProdutoModel) -> Union[int, None]:
