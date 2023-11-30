@@ -31,13 +31,11 @@ async def listar_produto(produto_id: int, session: AsyncSession = Depends(get_se
 
 @router.post("/carrinho", response_model=ProdutoResponse, tags=["Sistema"], status_code=status.HTTP_201_CREATED)
 async def criar_produto(produto: ProdutoModel, session: AsyncSession = Depends(get_session)):
-    produto_dict = produto.dict()
-    produto_cleaned = ProdutoModel(**produto_dict)
-
-    session.add(produto_cleaned)
+    session.add(produto)
+    
     await session.commit()
-    await session.refresh(produto_cleaned)
-    return produto_cleaned
+    await session.refresh(produto)
+    return produto
 
 
 @router.delete("/carrinho/{produto_id}", tags=["Sistema"])
